@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('p2.jpg');
+            background-size: cover;
+            background-position: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            margin-top: 5%;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+
+        button {
+            background-color: red;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: darkred;
+        }
+
+        #logoutButton {
+            background-color: #28a745;
+            padding: 10px 15px;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        #logoutButton:hover {
+            background-color: #218838;
+        }
+
+        .deleteButton {
+            background-color: red;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .deleteButton:hover {
+            background-color: darkred;
+        }
+
+        /* Loading spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading {
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>User Management</h1>
+        <div class="loading" id="loadingIndicator">
+            <div class="loader"></div>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Age</th>
+                    <th>Gender</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="userTable">
+                <!-- User rows will be dynamically inserted here -->
+            </tbody>
+        </table>
+        <button id="logoutButton">Log Out</button>
+    </div>
+
+    <script>
+        // Fetch the list of users
+        async function fetchUsers() {
+            const token = localStorage.getItem('authToken');  // Changed 'token' to 'authToken' to match the login page.
+            if (!token) {
+                alert('Please log in first.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Show loading indicator
+            document.getElementById('loadingIndicator').classList.add('show');
+
+            try {
+                const response = await fetch('http://localhost:3000/users', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                // Hide loading indicator
+                document.getElementById('loadingIndicator').classList.remove('show');
+
+                if (response.ok) {
+                    const users = await response.json();
+                    const userTable = document.getElementById('userTable');
+                    userTable.innerHTML = '';
+
+                    if (users.length === 0) {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `<td colspan="5">No users found.</td>`;
+                        userTable.appendChild(row);
+                    } else {
+                        users.forEach(user => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${user.name}</td>
+                                <td>${user.username}</td>
+                                <td>${user.age}</td>
+                                <td>${user.gender}</td>
+                                <td><button class="deleteButton" onclick="deleteUser('${user.username}')">Delete</button></td>
+                            `;
+                            userTable.appendChild(row);
+                        });
+                    }
+                } else {
+                    alert('Failed to fetch users. Please log in again.');
+                    window.location.href = 'index.html';
+                }
+            } catch (error) {
+                alert('An error occurred while fetching users.');
+            }
+        }
+
+        // Log out the user
+        document.getElementById('logoutButton').addEventListener('click', () => {
+            localStorage.removeItem('authToken'); // Remove the token from localStorage
+            window.location.href = 'index.html'; // Redirect to login page
+        });
+
+        // Delete user
+        async function deleteUser(username) {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                alert('Please log in first.');
+                return;
+            }
+
+            const confirmation = confirm(`Are you sure you want to delete the user "${username}"?`);
+            if (!confirmation) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`http://localhost:3000/users/${username}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    alert('User deleted successfully.');
+                    fetchUsers();  // Refresh the list after deletion
+                } else {
+                    alert('Failed to delete user. You may not have permission.');
+                }
+            } catch (error) {
+                alert('An error occurred while deleting the user.');
+            }
+        }
+
+        // Fetch users on page load
+        window.onload = fetchUsers;
+    </script>
+</body>
+</html>
